@@ -18,11 +18,15 @@ class Moltin
 
       console.log type + ": " + msg
 
-  constructor: (overrides) ->
-      
-    @options = @Merge @options, overrides
-    @Storage = new Storage
 
+  constructor: (overrides) ->
+
+
+    @Storage = new Storage
+    @Helper = new Helper
+    @Ajax = new Ajax
+
+    @options = @Helper.Merge @options, overrides
     @Address       = new Address @
     @Brand         = new Brand @
     @Cart          = new Cart @
@@ -38,33 +42,13 @@ class Moltin
     @Shipping      = new Shipping @
     @Tax           = new Tax @
 
+
     if @Storage.get 'mcurrency'
       @options.currency = @Storage.get 'mcurrency'
 
     if @Storage.get 'mlanguage'
       @options.language = @Storage.get 'mlanguage'
 
-  Merge: (o1, o2) ->
-
-    o3 = {}
-    o3[k] = v for k, v of o1
-    o3[k] = v for k, v of o2
-    return o3
-
-  InArray: (key, arr) ->
-
-    return false if not arr or key not in arr
-    return true
-
-  Serialize: (obj, prefix = null) ->
-
-    str = []
-
-    for k,v of obj
-      k = if prefix != null then prefix+'['+k+']' else k
-      str.push if typeof v == 'object' then @Serialize v, k else encodeURIComponent(k)+'='+encodeURIComponent(v)
-
-    return str.join '&'
 
   Error: (response) ->
 
@@ -79,51 +63,17 @@ class Moltin
 
   Authenticate: (callback, error)->
 
-    if @options.publicId.length <= 0
-      if typeof error == 'function'
-        error 'error', 'Public ID must be set', 401
+    # Throws an error when the client_id isn't set
+    if @options.clientId <= 0
+      throw new Error("A client ID must be provided");
+    else
+      # Make a request to the API
 
-    if @Storage.get('mtoken') != null and parseInt(@Storage.get('mexpires')) > Date.now()
 
-      @options.auth =
-        expires: parseInt(@Storage.get('mexpires')) * 1000
-        token:   @Storage.get 'mtoken'
 
-      if typeof callback == 'function'
-        callback @options.auth
 
-      _e = document.createEvent 'CustomEvent'
-      _e.initCustomEvent 'MoltinReady', false, false, @
-      window.dispatchEvent _e
 
-      return @
 
-    @Ajax
-      method: 'POST'
-      path: '/oauth/access_token'
-      data: data
-      async: if typeof callback == 'function' then true else false
-      headers:
-        'Content-Type': 'application/x-www-form-urlencoded'
-      success: (r, c, e) =>
-
-        @Storage.set 'mexpires', r.expires
-        @Storage.set 'mtoken', r.token_type+' '+r.access_token
-
-        @options.auth =
-          expires: parseInt(@Storage.get('mexpires')) * 1000
-          token:   @Storage.get 'mtoken'
-
-        if typeof callback == 'function'
-          callback r
-
-        _e = document.createEvent 'CustomEvent'
-        _e.initCustomEvent 'MoltinReady', false, false, @
-        window.dispatchEvent _e
-
-      error: (e, c, r) =>
-        if typeof error == 'function'
-          error 'error', 'Authorization failed', 401
 
     return @
 
